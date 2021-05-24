@@ -7,7 +7,6 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("-env", "--environment", type=str, help="Path to environment executable on Windows.")
     args, _ = parser.parse_known_args()
-    print(args.environment)
     sub_path = args.environment.split("\\")
     disk = sub_path[0]
     exe = sub_path[-1]
