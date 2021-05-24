@@ -20,6 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'run_environment = airsim_utils.run_environment:main',
+            'generate_settings = airsim_utils.generate_settings:main'
         ],
     },
 )
