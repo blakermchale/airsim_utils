@@ -16,7 +16,7 @@ DEFAULT_ALT = 122
 
 # https://microsoft.github.io/AirSim/settings/#available-settings-and-their-defaults
 def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon=DEFAULT_LON, 
-                    alt=DEFAULT_ALT):
+                    alt=DEFAULT_ALT, hitl=False):
     """Generate AirSim settings."""
     hfov_color = 69.39
     hfov_ir = 85.94
@@ -25,11 +25,6 @@ def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon
         "SimMode": "Multirotor",
         "PawnPaths": {
             "DefaultQuadrotor": {"PawnBP": pawn_bp},
-        },
-        "OriginGeopoint": {
-            "Latitude": lat,
-            "Longitude": lon,
-            "Altitude": alt
         },
         "CameraDefaults": {
             "CaptureSettings": [
@@ -61,58 +56,23 @@ def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon
         },
         "Vehicles": {}
     }
+    settings.update(get_origin_geopoint(lat, lon, alt))
 
     # Create individual drones
     for i in range(nb):
         settings["Vehicles"][f"drone_{i}"] = {
             "VehicleType": "PX4Multirotor",
-            "UseSerial": False,
-            "UseTcp": True,
+            "UseSerial": hitl,
             "QgcHostIp": "127.0.0.1",
             "QgcPort": 14550,
-            "TcpPort": 4560 + i,
-            "ControlIp": os.environ["WSL_IP"].rstrip(" "),
-            "ControlPort": 14580,
-            "LocalHostIp": os.environ["WSL_HOST_IP"],
-            "X": 0, "Y": 1.5*i, "Z": 0,
-            "Sensors":{
-                "Barometer":{
-                    "SensorType": 1,
-                    "Enabled": True,
-                    "PressureFactorSigma": 0.0001825
-                }
-            },
-            "Parameters": {
-                "NAV_RCL_ACT": 0,
-                "NAV_DLL_ACT": 0,
-                "COM_OBL_ACT": 1,
-                "LPE_LAT": lat,
-                "LPE_LON": lon
-            }
-            # "Cameras": {
-            #     "realsense_down": {
-            #         "CaptureSettings": [
-            #         {
-            #             "ImageType": 0,  # Scene
-            #             "Width": 1920,
-            #             "Height": 1080
-            #         },
-            #         {
-            #             "ImageType": 7,  # Infrared
-            #             "Width": 1920,
-            #             "Height": 1080
-            #         },
-            #         {
-            #             "ImageType": 1,  # DepthPlanar
-            #             "Width": 1920,
-            #             "Height": 1080
-            #         }
-            #         ],
-            #         "Pitch": 1.57
-            #     }
-            # },
-            
         }
+        
+        settings["Vehicles"][f"drone_{i}"].update(get_position(i))
+        if not hitl:
+            settings["Vehicles"][f"drone_{i}"].update(get_sitl_fields(i))
+            settings["Vehicles"][f"drone_{i}"].update(get_sensors())
+        settings["Vehicles"][f"drone_{i}"].update(get_parameters(lat, lon))
+
     var_result = subprocess.run(["wslvar", "USERPROFILE"], capture_output=True, text=True).stdout
     win_home = subprocess.run(["wslpath", var_result], capture_output=True, text=True).stdout
     win_home = win_home.rstrip('\n')
@@ -120,6 +80,82 @@ def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon
     with open(airsim_settings, 'w') as outfile:
         json.dump(settings, outfile, indent=4)
 
+
+def get_parameters(lat, lon):
+    return {
+        "Parameters": {
+            "NAV_RCL_ACT": 0,
+            "NAV_DLL_ACT": 0,
+            "COM_OBL_ACT": 1,
+            "LPE_LAT": lat,
+            "LPE_LON": lon
+        }
+    }
+
+
+def get_sitl_fields(i):
+    return {
+        "UseTcp": True,
+        "TcpPort": 4560 + i,
+        "ControlIp": os.environ["WSL_IP"].rstrip(" "),
+        "ControlPort": 14580,
+        "LocalHostIp": os.environ["WSL_HOST_IP"],
+    }
+
+
+def get_sensors():
+    return {
+        "Sensors":{
+            "Barometer":{
+                "SensorType": 1,
+                "Enabled": True,
+                "PressureFactorSigma": 0.0001825
+            }
+        },
+    }
+
+
+def get_position(i):
+    return {
+        "X": 0, "Y": 1.5*i, "Z": 0,
+    }
+
+
+def get_cameras():
+    return {
+        "Cameras": {
+            "realsense_down": {
+                "CaptureSettings": [
+                {
+                    "ImageType": 0,  # Scene
+                    "Width": 1920,
+                    "Height": 1080
+                },
+                {
+                    "ImageType": 7,  # Infrared
+                    "Width": 1920,
+                    "Height": 1080
+                },
+                {
+                    "ImageType": 1,  # DepthPlanar
+                    "Width": 1920,
+                    "Height": 1080
+                }
+                ],
+                "Pitch": 1.57
+            }
+        },
+    }
+
+
+def get_origin_geopoint(lat, lon, alt):
+    return {
+        "OriginGeopoint": {
+            "Latitude": lat,
+            "Longitude": lon,
+            "Altitude": alt
+        },
+    }
 
 
 def main():
@@ -129,9 +165,10 @@ def main():
     parser.add_argument("-lat", "--latitude", default=DEFAULT_LAT, type=float, help="Latitude.")
     parser.add_argument("-lon", "--longitude", default=DEFAULT_LON, type=float, help="Latitude.")
     parser.add_argument("-alt", "--altitude", default=DEFAULT_ALT, type=float, help="Longitude.")
+    parser.add_argument("-h", "--hitl", default=False, type=bool, help="Whether to use serial connection.")
 
     args, _ = parser.parse_known_args()
-    create_settings(pawn_bp=args.pawn_bp, nb=args.number, lat=args.latitude, lon=args.longitude, alt=args.altitude)
+    create_settings(pawn_bp=args.pawn_bp, nb=args.number, lat=args.latitude, lon=args.longitude, alt=args.altitude, hitl=args.hitl)
 
 
 if __name__=="__main__":

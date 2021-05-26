@@ -11,6 +11,8 @@ def run_environment(env):
     exe = sub_path[-1]
     path = "\\".join(sub_path[:-1])
     name = sub_path[-2]
+    # TODO: fix permission error
+    kill(name)  # Make sure no other environments are running
     os.system(f"cmd.exe /c \"{disk} && cd {path} && {exe}\"")
 
     # TODO: check until log file stops changing
@@ -25,6 +27,7 @@ def run_environment(env):
         if now - start > 10.0:
             kill(name)
             return False
+        time.sleep(0.01)
     while True:
         now = time.time()
         last_change = os.path.getmtime(log_path)
@@ -35,6 +38,7 @@ def run_environment(env):
         elif dt_start > 50.0:
             kill(name)
             return False
+        time.sleep(0.01)
 
 
 #TODO: use kill whenever launch is shutdown
