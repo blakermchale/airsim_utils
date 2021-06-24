@@ -1,4 +1,5 @@
 #!/bin/env python3
+from enum import IntEnum
 import json
 import os
 import subprocess
@@ -13,16 +14,26 @@ DEFAULT_LON = -122.140165
 DEFAULT_ALT = 122
 
 
+class VehicleType(IntEnum):
+    PX4Multirotor = 0
+    SimpleFlight = 1
+    PhysXCar = 2
+
 
 # https://microsoft.github.io/AirSim/settings/#available-settings-and-their-defaults
 def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon=DEFAULT_LON, 
-                    alt=DEFAULT_ALT, hitl=False):
+                    alt=DEFAULT_ALT, hitl=False, vehicle_type=VehicleType.PX4Multirotor):
     """Generate AirSim settings."""
     hfov_color = 69.39
     hfov_ir = 85.94
+    sim_mode = ""
+    if vehicle_type in [VehicleType.PX4Multirotor, VehicleType.SimpleFlight]:
+        sim_mode = "Multirotor"
+    elif vehicle_type == VehicleType.PhysXCar:
+        sim_mode = "Car"
     settings = {
         "SettingsVersion": 1.2,
-        "SimMode": "Multirotor",
+        "SimMode": sim_mode,
         "PawnPaths": {
             "DefaultQuadrotor": {"PawnBP": pawn_bp},
         },
@@ -60,18 +71,29 @@ def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon
 
     # Create individual drones
     for i in range(nb):
-        settings["Vehicles"][f"drone_{i}"] = {
-            "VehicleType": "PX4Multirotor",
-            "UseSerial": hitl,
-            "QgcHostIp": "127.0.0.1",
-            "QgcPort": 14550,
-        }
+        if vehicle_type == VehicleType.PX4Multirotor:
+            settings["Vehicles"][f"drone_{i}"] = {
+                "VehicleType": "PX4Multirotor",
+                "UseSerial": hitl,
+                "QgcHostIp": "127.0.0.1",
+                "QgcPort": 14550,
+            }
+            settings["Vehicles"][f"drone_{i}"].update(get_parameters(lat, lon))
+        elif vehicle_type == VehicleType.SimpleFlight:
+            settings["Vehicles"][f"drone_{i}"] = {
+                "VehicleType": "SimpleFlight",
+                "DefaultVehicleState": "Disarmed",
+            }
+        elif vehicle_type == VehicleType.PhysXCar:
+            settings["Vehicles"][f"drone_{i}"] = {
+                "VehicleType": "PhysXCar",
+                "DefaultVehicleState": "Disarmed",
+            }
         
         settings["Vehicles"][f"drone_{i}"].update(get_position(i))
-        if not hitl:
+        if not hitl and vehicle_type == VehicleType.PX4Multirotor:
             settings["Vehicles"][f"drone_{i}"].update(get_sitl_fields(i))
             settings["Vehicles"][f"drone_{i}"].update(get_sensors())
-        settings["Vehicles"][f"drone_{i}"].update(get_parameters(lat, lon))
 
     var_result = subprocess.run(["wslvar", "USERPROFILE"], capture_output=True, text=True).stdout
     win_home = subprocess.run(["wslpath", var_result], capture_output=True, text=True).stdout
@@ -165,10 +187,12 @@ def main():
     parser.add_argument("-lat", "--latitude", default=DEFAULT_LAT, type=float, help="Latitude.")
     parser.add_argument("-lon", "--longitude", default=DEFAULT_LON, type=float, help="Latitude.")
     parser.add_argument("-alt", "--altitude", default=DEFAULT_ALT, type=float, help="Longitude.")
-    parser.add_argument("-h", "--hitl", default=False, type=bool, help="Whether to use serial connection.")
+    parser.add_argument("--hitl", default=False, type=bool, help="Whether to use serial connection.")
+    parser.add_argument("-t", "--vehicle-type", default="PX4Multirotor", type=str, choices=[e.name for e in VehicleType], help="Vehicle type to use.")
 
     args, _ = parser.parse_known_args()
-    create_settings(pawn_bp=args.pawn_bp, nb=args.number, lat=args.latitude, lon=args.longitude, alt=args.altitude, hitl=args.hitl)
+    vehicle_type = VehicleType[args.vehicle_type]
+    create_settings(pawn_bp=args.pawn_bp, nb=args.number, lat=args.latitude, lon=args.longitude, alt=args.altitude, hitl=args.hitl, vehicle_type=vehicle_type)
 
 
 if __name__=="__main__":
