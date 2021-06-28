@@ -15,21 +15,21 @@ DEFAULT_ALT = 122
 
 
 class VehicleType(IntEnum):
-    PX4Multirotor = 0
-    SimpleFlight = 1
-    PhysXCar = 2
+    PX4MULTIROTOR = 0
+    SIMPLEFLIGHT = 1
+    PHYSXCAR = 2
 
 
 # https://microsoft.github.io/AirSim/settings/#available-settings-and-their-defaults
 def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon=DEFAULT_LON, 
-                    alt=DEFAULT_ALT, hitl=False, vehicle_type=VehicleType.PX4Multirotor):
+                    alt=DEFAULT_ALT, hitl=False, vehicle_type=VehicleType.PX4MULTIROTOR):
     """Generate AirSim settings."""
     hfov_color = 69.39
     hfov_ir = 85.94
     sim_mode = ""
-    if vehicle_type in [VehicleType.PX4Multirotor, VehicleType.SimpleFlight]:
+    if vehicle_type in [VehicleType.PX4MULTIROTOR, VehicleType.SIMPLEFLIGHT]:
         sim_mode = "Multirotor"
-    elif vehicle_type == VehicleType.PhysXCar:
+    elif vehicle_type == VehicleType.PHYSXCAR:
         sim_mode = "Car"
     settings = {
         "SettingsVersion": 1.2,
@@ -71,7 +71,7 @@ def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon
 
     # Create individual drones
     for i in range(nb):
-        if vehicle_type == VehicleType.PX4Multirotor:
+        if vehicle_type == VehicleType.PX4MULTIROTOR:
             settings["Vehicles"][f"drone_{i}"] = {
                 "VehicleType": "PX4Multirotor",
                 "UseSerial": hitl,
@@ -79,19 +79,19 @@ def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon
                 "QgcPort": 14550,
             }
             settings["Vehicles"][f"drone_{i}"].update(get_parameters(lat, lon))
-        elif vehicle_type == VehicleType.SimpleFlight:
+        elif vehicle_type == VehicleType.SIMPLEFLIGHT:
             settings["Vehicles"][f"drone_{i}"] = {
                 "VehicleType": "SimpleFlight",
                 "DefaultVehicleState": "Disarmed",
             }
-        elif vehicle_type == VehicleType.PhysXCar:
+        elif vehicle_type == VehicleType.PHYSXCAR:
             settings["Vehicles"][f"drone_{i}"] = {
                 "VehicleType": "PhysXCar",
                 "DefaultVehicleState": "Disarmed",
             }
         
         settings["Vehicles"][f"drone_{i}"].update(get_position(i))
-        if not hitl and vehicle_type == VehicleType.PX4Multirotor:
+        if not hitl and vehicle_type == VehicleType.PX4MULTIROTOR:
             settings["Vehicles"][f"drone_{i}"].update(get_sitl_fields(i))
             settings["Vehicles"][f"drone_{i}"].update(get_sensors())
 
@@ -188,10 +188,10 @@ def main():
     parser.add_argument("-lon", "--longitude", default=DEFAULT_LON, type=float, help="Latitude.")
     parser.add_argument("-alt", "--altitude", default=DEFAULT_ALT, type=float, help="Longitude.")
     parser.add_argument("--hitl", default=False, type=bool, help="Whether to use serial connection.")
-    parser.add_argument("-t", "--vehicle-type", default="PX4Multirotor", type=str, choices=[e.name for e in VehicleType], help="Vehicle type to use.")
+    parser.add_argument("-t", "--vehicle-type", default="px4multirotor", type=str, choices=[e.name.lower() for e in VehicleType], help="Vehicle type to use.")
 
     args, _ = parser.parse_known_args()
-    vehicle_type = VehicleType[args.vehicle_type]
+    vehicle_type = VehicleType[args.vehicle_type.upper()]
     create_settings(pawn_bp=args.pawn_bp, nb=args.number, lat=args.latitude, lon=args.longitude, alt=args.altitude, hitl=args.hitl, vehicle_type=vehicle_type)
 
 
