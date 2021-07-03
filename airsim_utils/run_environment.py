@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 
 def run_environment(env):
     """Runs given environment executable in Windows and waits until the log file stops changing before returning."""
+    print(f"Running '{env}'")
     sub_path = env.split("\\")
     disk = sub_path[0]
     exe = sub_path[-1]
