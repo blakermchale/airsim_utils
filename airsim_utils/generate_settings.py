@@ -109,6 +109,7 @@ def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon
         if not hitl and vehicle_type == VehicleType.PX4MULTIROTOR:
             settings["Vehicles"][namespace].update(get_sitl_fields(i))
             settings["Vehicles"][namespace].update(get_sensors())
+        settings["Vehicles"][namespace].update(get_cameras())
 
     var_result = subprocess.run(["wslvar", "USERPROFILE"], capture_output=True, text=True).stdout
     win_home = subprocess.run(["wslpath", var_result], capture_output=True, text=True).stdout
@@ -159,27 +160,44 @@ def get_position(i):
 
 
 def get_cameras():
+    # return {
+    #     "Cameras": {
+    #         "front-center": {
+    #         "CaptureSettings": [
+    #             {
+    #             "ImageType": 0,
+    #             "FOV_Degrees": 120
+    #             }
+    #         ]
+    #         }
+    #     }
+    # }
     return {
         "Cameras": {
+            # realsense docs https://www.intel.com/content/www/us/en/support/articles/000030385/emerging-technologies/intel-realsense-technology.html
             "realsense_down": {
                 "CaptureSettings": [
                 {
+                    # "PublishToRos": 1,
                     "ImageType": 0,  # Scene
                     "Width": 1920,
-                    "Height": 1080
+                    "Height": 1080,
+                    "FOV_Degrees": 69.4  # Needs FOV for ros
                 },
-                {
-                    "ImageType": 7,  # Infrared
-                    "Width": 1920,
-                    "Height": 1080
-                },
-                {
-                    "ImageType": 1,  # DepthPlanar
-                    "Width": 1920,
-                    "Height": 1080
-                }
+                # {
+                #     "ImageType": 7,  # Infrared
+                #     "Width": 1920,
+                #     "Height": 1080
+                # },
+                # {
+                #     "ImageType": 1,  # DepthPlanar
+                #     "Width": 1920,
+                #     "Height": 1080
+                #     "FOV_Degrees": 86  # Needs FOV for ros
+                # }
                 ],
-                "Pitch": 1.57
+                "X": 0, "Y": 0, "Z": 0,
+                "Pitch": 1.57, "Roll": 0, "Yaw": 0
             }
         },
     }
