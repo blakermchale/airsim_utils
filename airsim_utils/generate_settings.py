@@ -160,22 +160,10 @@ def get_position(i):
 
 
 def get_cameras():
-    # return {
-    #     "Cameras": {
-    #         "front-center": {
-    #         "CaptureSettings": [
-    #             {
-    #             "ImageType": 0,
-    #             "FOV_Degrees": 120
-    #             }
-    #         ]
-    #         }
-    #     }
-    # }
     return {
         "Cameras": {
             # realsense docs https://www.intel.com/content/www/us/en/support/articles/000030385/emerging-technologies/intel-realsense-technology.html
-            "realsense_down": {
+            "realsense": {
                 "CaptureSettings": [
                 {
                     # "PublishToRos": 1,
@@ -197,7 +185,7 @@ def get_cameras():
                 # }
                 ],
                 "X": 0, "Y": 0, "Z": 0,
-                "Pitch": 1.57, "Roll": 0, "Yaw": 0
+                "Pitch": -90.0, "Roll": 0, "Yaw": 0
             }
         },
     }
