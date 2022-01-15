@@ -14,11 +14,114 @@ DEFAULT_LON = -122.140165
 DEFAULT_ALT = 122
 EMPTY_NAMESPACE="SimpleFlight"
 
+BAREBONE_CAR = "Class'/AirSim/VehicleAdv/Vehicle/VehicleAdvPawn.VehicleAdvPawn_C'"
+DEFAULT_CAR = "Class'/AirSim/VehicleAdv/SUV/SuvCarPawn.SuvCarPawn_C'"
+DEFAULT_QUADROTOR = "Class'/AirSim/Blueprints/BP_FlyingPawn.BP_FlyingPawn_C'"
+DEFAULT_COMPTER_VISION = "Class'/AirSim/Blueprints/BP_ComputerVisionPawn.BP_ComputerVisionPawn_C'"
+
 
 class VehicleType(IntEnum):
     PX4MULTIROTOR = 0
     SIMPLEFLIGHT = 1
     PHYSXCAR = 2
+
+
+def get_empty_settings(vehicle_type:VehicleType=VehicleType.PX4MULTIROTOR,
+        barebone_car=BAREBONE_CAR, default_car=DEFAULT_CAR, default_quadrotor=DEFAULT_QUADROTOR, default_computer_vision=DEFAULT_COMPTER_VISION,
+        lat=DEFAULT_LAT, lon=DEFAULT_LON, alt=DEFAULT_ALT):
+    sim_mode = ""
+    if vehicle_type in [VehicleType.PX4MULTIROTOR, VehicleType.SIMPLEFLIGHT]:
+        sim_mode = "Multirotor"
+    elif vehicle_type == VehicleType.PHYSXCAR:
+        sim_mode = "Car"
+    settings = {
+        "SettingsVersion": 1.2,
+        "SimMode": sim_mode,
+        "PawnPaths": {
+            "BareboneCar": {"PawnBP": barebone_car},
+            "DefaultCar": {"PawnBP": default_car},
+            "DefaultQuadrotor": {"PawnBP": default_quadrotor},
+            "DefaultComputerVision": {"PawnBP": default_computer_vision},
+        },
+        "CameraDefaults": get_camera_defaults(),
+        "Vehicles": {}
+    }
+    settings.update(get_origin_geopoint(lat, lon, alt))
+    return settings
+
+
+def add_vehicle_settings(settings:dict, namespace:str, vehicle_type:VehicleType,
+        x, y, z, roll, pitch, yaw,
+        pawn_path="", hitl:bool=False, instance=0):
+    if not settings:
+        raise ValueError(f"Settings cannot be empty: {settings}")
+    if "Vehicles" not in settings:
+        settings["Vehicles"] = {}
+    if vehicle_type == VehicleType.PX4MULTIROTOR:
+        settings["Vehicles"][namespace] = {
+            "VehicleType": "PX4Multirotor",
+            "UseSerial": hitl,
+            "QgcHostIp": "127.0.0.1",
+            "QgcPort": 14550,
+        }
+        lat, lon = settings["OriginGeopoint"]["Latitude"], settings["OriginGeopoint"]["Longitude"]
+        settings["Vehicles"][namespace].update(get_parameters(lat, lon))
+    elif vehicle_type == VehicleType.SIMPLEFLIGHT:
+        settings["Vehicles"][namespace] = {
+            "VehicleType": "SimpleFlight",
+            "DefaultVehicleState": "Disarmed",
+        }
+    elif vehicle_type == VehicleType.PHYSXCAR:
+        settings["Vehicles"][namespace] = {
+            "VehicleType": "PhysXCar",
+            "DefaultVehicleState": "Disarmed",
+        }
+    if pawn_path:
+        settings["PawnPaths"][pawn_path] = pawn_path
+        settings["Vehicles"][namespace]["PawnPath"] = pawn_path
+    
+    settings["Vehicles"][namespace].update(get_pose(x, y, z, roll, pitch, yaw))
+    if not hitl and vehicle_type == VehicleType.PX4MULTIROTOR:
+        settings["Vehicles"][namespace].update(get_sitl_fields(instance))
+        settings["Vehicles"][namespace].update(get_sensors())
+    elif hitl and vehicle_type == VehicleType.PX4MULTIROTOR:
+        os.environ["PX4_SIM_HOST_ADDR"] = os.environ["WSL_HOST_IP"]
+    # TODO: add system similar to sdf, but with jsons or yamls where predefined configurations for models with sensors exist and can be applied using a name
+    settings["Vehicles"][namespace].update(get_cameras())
+    return settings
+
+
+def get_camera_defaults():
+    hfov_color = 69.39
+    hfov_ir = 85.94
+    return {
+        "CaptureSettings": [
+            {
+            "ImageType": 0,
+            "Width": 640,
+            "Height": 480,
+            "FOV_Degrees": hfov_color,  # from frog
+            "AutoExposureSpeed": 100,
+            "MotionBlurAmount": 0
+            },
+            {
+            "ImageType": 7,
+            "Width": 640,
+            "Height": 480,
+            "FOV_Degrees": hfov_ir,
+            "AutoExposureSpeed": 100,
+            "MotionBlurAmount": 0
+            },
+            # {
+            # "ImageType": 1,
+            # "Width": 1920,
+            # "Height": 1080,
+            # "FOV_Degrees": 90,
+            # "AutoExposureSpeed": 100,
+            # "MotionBlurAmount": 0
+            # },
+        ]
+    }
 
 
 # https://microsoft.github.io/AirSim/settings/#available-settings-and-their-defaults
@@ -38,79 +141,14 @@ def create_settings(pawn_bp=DEFAULT_PAWN_BP, nb=DEFAULT_NB, lat=DEFAULT_LAT, lon
             namespaces.append(f"drone_{len_ns+i}")
     if len(namespaces) != len(set(namespaces)):
         raise ValueError("Namespaces list contains duplicates")
-    # Settings values
-    hfov_color = 69.39
-    hfov_ir = 85.94
-    sim_mode = ""
-    if vehicle_type in [VehicleType.PX4MULTIROTOR, VehicleType.SIMPLEFLIGHT]:
-        sim_mode = "Multirotor"
-    elif vehicle_type == VehicleType.PHYSXCAR:
-        sim_mode = "Car"
-    settings = {
-        "SettingsVersion": 1.2,
-        "SimMode": sim_mode,
-        "PawnPaths": {
-            "DefaultQuadrotor": {"PawnBP": pawn_bp},
-        },
-        "CameraDefaults": {
-            "CaptureSettings": [
-                {
-                "ImageType": 0,
-                "Width": 640,
-                "Height": 480,
-                "FOV_Degrees": hfov_color,  # from frog
-                "AutoExposureSpeed": 100,
-                "MotionBlurAmount": 0
-                },
-                {
-                "ImageType": 7,
-                "Width": 640,
-                "Height": 480,
-                "FOV_Degrees": hfov_ir,
-                "AutoExposureSpeed": 100,
-                "MotionBlurAmount": 0
-                },
-                # {
-                # "ImageType": 1,
-                # "Width": 1920,
-                # "Height": 1080,
-                # "FOV_Degrees": 90,
-                # "AutoExposureSpeed": 100,
-                # "MotionBlurAmount": 0
-                # },
-            ]
-        },
-        "Vehicles": {}
-    }
-    settings.update(get_origin_geopoint(lat, lon, alt))
 
-    # Create individual drones
+    settings = get_empty_settings(vehicle_type=vehicle_type, lat=lat, lon=lon, alt=alt, default_quadrotor=pawn_bp)
     for i, namespace in enumerate(namespaces):
-        if vehicle_type == VehicleType.PX4MULTIROTOR:
-            settings["Vehicles"][namespace] = {
-                "VehicleType": "PX4Multirotor",
-                "UseSerial": hitl,
-                "QgcHostIp": "127.0.0.1",
-                "QgcPort": 14550,
-            }
-            settings["Vehicles"][namespace].update(get_parameters(lat, lon))
-        elif vehicle_type == VehicleType.SIMPLEFLIGHT:
-            settings["Vehicles"][namespace] = {
-                "VehicleType": "SimpleFlight",
-                "DefaultVehicleState": "Disarmed",
-            }
-        elif vehicle_type == VehicleType.PHYSXCAR:
-            settings["Vehicles"][namespace] = {
-                "VehicleType": "PhysXCar",
-                "DefaultVehicleState": "Disarmed",
-            }
-        
-        settings["Vehicles"][namespace].update(get_position(i))
-        if not hitl and vehicle_type == VehicleType.PX4MULTIROTOR:
-            settings["Vehicles"][namespace].update(get_sitl_fields(i))
-            settings["Vehicles"][namespace].update(get_sensors())
-        settings["Vehicles"][namespace].update(get_cameras())
+        add_vehicle_settings(settings, namespace, vehicle_type, 0.0, 1.5*i, 0.0, 0.0, 0.0, hitl=hitl, instance=i)
+    write_settings(settings)
 
+
+def write_settings(settings):
     var_result = subprocess.run(["wslvar", "USERPROFILE"], capture_output=True, text=True).stdout
     win_home = subprocess.run(["wslpath", var_result], capture_output=True, text=True).stdout
     win_home = win_home.rstrip('\n')
@@ -153,9 +191,9 @@ def get_sensors():
     }
 
 
-def get_position(i):
+def get_pose(x, y, z, roll, pitch, yaw):
     return {
-        "X": 0, "Y": 1.5*i, "Z": 0,
+        "X": x, "Y": y, "Z": z, "Yaw": yaw, "Roll": roll, "Pitch": pitch,
     }
 
 
