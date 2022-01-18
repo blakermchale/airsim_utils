@@ -215,12 +215,12 @@ def get_cameras():
                 #     "Width": 1920,
                 #     "Height": 1080
                 # },
-                # {
-                #     "ImageType": 1,  # DepthPlanar
-                #     "Width": 1920,
-                #     "Height": 1080
-                #     "FOV_Degrees": 86  # Needs FOV for ros
-                # }
+                {
+                    "ImageType": 1,  # DepthPlanar
+                    "Width": 1920,
+                    "Height": 1080,
+                    "FOV_Degrees": 86  # Needs FOV for ros
+                }
                 ],
                 "X": 0, "Y": 0, "Z": 0,
                 "Pitch": -90.0, "Roll": 0, "Yaw": 0
